@@ -20,6 +20,7 @@ on:
       port_context:
         required: true
         description: includes blueprint, run ID, and entity identifier from Port.
+
 jobs:
   provision-ec2:
     runs-on: ubuntu-latest
@@ -38,7 +39,6 @@ jobs:
           runId: ${{ fromJson(inputs.port_context).rund_id }}
           logMessage: |
               About to create ec2 instance ${{ github.event.inputs.ec2_name }} .. ⛴️
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -52,19 +52,19 @@ jobs:
           terraform_wrapper: false
           
       - name: Terraform Apply
-        id:   apply
+        id: apply
         env:
-          TF_VAR_ec2_name:  "${{ github.event.inputs.ec2_name }}"
-          TF_VAR_pem_key_name: "${{ github.event.inputs.pem_key_name}}"
+          TF_VAR_ec2_name: "${{ github.event.inputs.ec2_name }}"
+          TF_VAR_pem_key_name: "${{ github.event.inputs.pem_key_name }}"
           TF_VAR_aws_region: "${{ secrets.TF_USER_AWS_REGION }}"
-          TF_VAR_ec2_instance_type: "${{ github.event.inputs.ec2_instance_type}}"
+          TF_VAR_ec2_instance_type: "${{ github.event.inputs.ec2_instance_type }}"
         run: |
           cd <TERRAFORM-TEMPLATE-DIR>
           terraform init
           terraform validate
           terraform plan 
           terraform apply -auto-approve
-
+          
       - name: Set Outputs
         id: set_outputs
         run: |
@@ -84,7 +84,7 @@ jobs:
           echo "subnet_id=$(terraform output -raw subnet_id)" >> $GITHUB_ENV
           tags=$(terraform output -json tags | jq -c .)
           echo "tags=$tags" >> $GITHUB_ENV
-
+          
       - name: Create a log message
         uses: port-labs/port-github-action@v1
         with:
@@ -94,8 +94,8 @@ jobs:
           runId: ${{ fromJson(inputs.port_context).rund_id }}
           logMessage: |
               EC2 Instance created successfully ✅
-
-     - name: Report Created Instance to Port
+              
+      - name: Report Created Instance to Port
         uses: port-labs/port-github-action@v1
         with:
           clientId: ${{ secrets.PORT_CLIENT_ID }}
