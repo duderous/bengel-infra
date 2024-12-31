@@ -15,9 +15,9 @@ on:
         type: array
         required: false
       port_context:
-        description: Details of the action and general port_context (blueprint, run ID, etc...).
-        required: true
         description: includes blueprint, run ID, and entity identifier from Port.
+        required: true
+        type: string
 
 jobs:
   open-slack-channel:
@@ -38,10 +38,11 @@ jobs:
         env:
           SLACK_TOKEN: ${{ secrets.BOT_USER_OAUTH_TOKEN }}
         run: |
+          IS_PRIVATE=${{ github.event.inputs.is_private || 'false' }}
           response=$(curl -s -X POST "https://slack.com/api/conversations.create" \
             -H "Authorization: Bearer $SLACK_TOKEN" \
             -H "Content-Type: application/json" \
-            --data "{\"name\": \"${{ github.event.inputs.channel_name }}\",\"is_private\": ${{ github.event.inputs.is_private }} }")
+            --data "{\"name\": \"${{ github.event.inputs.channel_name }}\",\"is_private\": $IS_PRIVATE }")
 
           echo "API Response: $response"
 
@@ -71,6 +72,7 @@ jobs:
           logMessage: "Failed to create slack channel: ${{env.CREATE_CHANNEL_ERROR}} ❌"
 
       - name: Log If Create Channel Request is Successful
+        if: success()
         uses: port-labs/port-github-action@v1
         with:
           clientId: ${{ secrets.PORT_CLIENT_ID }}
@@ -98,8 +100,8 @@ jobs:
           chmod +x add-members-to-channel.sh
           bash add-members-to-channel.sh "$SLACK_TOKEN" "$CHANNEL_ID" "$CLIENT_ID" "$CLIENT_SECRET" "$RUN_ID" "$MEMBER_EMAILS"
 
-      - name: Log Successful Action
-        if: steps.add_members.outcome == 'failure'
+      - name: Log If Adding Members Fails
+        if: failure()
         uses: port-labs/port-github-action@v1
         with:
           clientId: ${{ secrets.PORT_CLIENT_ID }}
@@ -109,3 +111,14 @@ jobs:
           status: "FAILURE"
           runId: ${{ fromJson(github.event.inputs.port_context).runId }}
           logMessage: "Failed to add members to channel ❌"
+
+      - name: Log Successful Action
+        if: success()
+        uses: port-labs/port-github-action@v1
+        with:
+          clientId: ${{ secrets.PORT_CLIENT_ID }}
+          clientSecret: ${{ secrets.PORT_CLIENT_SECRET }}
+          baseUrl: https://api.getport.io
+          operation: PATCH_RUN
+          runId: ${{ fromJson(github.event.inputs.port_context).runId }}
+          logMessage: "Action completed successfully ✅"
